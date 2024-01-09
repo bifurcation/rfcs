@@ -1,17 +1,52 @@
-- Feature Name: (fill me in with a unique ident, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
+- Feature Name: where-eq-supertrait
+- Start Date: (fill me in with today's date, 2024-01-09)
 - RFC PR: [rust-lang/rfcs#0000](https://github.com/rust-lang/rfcs/pull/0000)
 - Rust Issue: [rust-lang/rust#0000](https://github.com/rust-lang/rust/issues/0000)
 
 # Summary
 [summary]: #summary
 
-One paragraph explanation of the feature.
+Trait bounds expressed in `where` bounds should be treated in the same way as
+supertrait bounds.
+
+Currently, they are the both the same and different.  They
+are the same in the sense that a type only implements the trait if it meets both
+the supertrait bounds and the `where` bounds.  But they are different in that
+uses of the trait will assume that supertrait bounds are satisfied, but not
+`where` bounds.
 
 # Motivation
 [motivation]: #motivation
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+Rust traits provide two ways that the trait definition can constrain
+implementations.  A trait can specify supertraits, which a type must implement
+in order to implement the trait in question.  A trait definition can also
+contain a `where` clause that expresses constraints that a type must meet in
+order to imiplement the trait in question.
+
+Some constraints cannot be expressed as supertraits.  This introduces some odd
+asymmetries.  For example, a trait can require addition to `T` on the right to
+work (`t + x` for an implementor `x`) with a supertrait `Add<T>`, but a requirement for
+addition on the left to work can only be expressed with a `where` clause, `T:
+Add<Self>`.
+
+This is probalematic when one wants to be generic over implementations of the
+trait.  The compiler will infer that a generic parameter bound to implement a
+trait also implements that trait's supertraits.  But the compiler will *not*
+infer that `where` clauses have been satisfied -- even though it is impossible
+for the type to implement the trait unless they are satisfied.  Thus, the
+`where` clauses propagate up the call stack until they are fulfilled by a
+concrete instantiation.
+
+The following small example illustrates the problem:
+
+https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=6a34be4c2371177a139dc665978765e1
+
+In this small example, the cascading `where` clause is not that large, but in
+more complicated cases, with generic parameters each bringing multiple `where`
+constraints, it can get result in large blobs of `where` gunk that have to be
+replicated over and over.
+
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
